@@ -41,7 +41,9 @@ async def predict(file: UploadFile):
     img = tf.expand_dims(img, axis=0)
     prediction = disease_model.predict(img)
     predicted_class = MODEL_DISEASE_CLASS[np.argmax(prediction) - 1]
+    information = diseases_ref.document(predicted_class).get().to_dict()
     return {
         "prediction": predicted_class,
         "raw_prediction": str(prediction),
+        "information": information,
     }
