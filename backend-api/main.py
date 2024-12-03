@@ -3,6 +3,9 @@ from google.cloud import firestore
 import tensorflow as tf
 from fastapi import FastAPI, UploadFile
 import numpy as np
+from pydantic import BaseModel, Field
+from enum import Enum
+from formula import crop
 
 PROJECT_ROOT: str = os.path.dirname(os.path.abspath(__file__))
 DISEASE_MODEL_PATH = os.path.abspath(PROJECT_ROOT + '/storage/models/rice_disease_detector_model.json')
@@ -46,4 +49,56 @@ async def predict(file: UploadFile):
         "prediction": predicted_class,
         "raw_prediction": str(prediction),
         "information": information,
+    }
+
+class RainfallStatus(str, Enum):
+    sangat_rendah = "sangat rendah"
+    rendah = "rendah"
+    normal = "normal"
+    tinggi = "tinggi"
+    sangat_tinggi = "sangat tinggi"
+
+class DiseaseLevel(str, Enum):
+    sangat_rendah = "sangat rendah"
+    rendah = "rendah"
+    normal = "normal"
+    tinggi = "tinggi"
+    sangat_tinggi = "sangat tinggi"
+
+class PlantingDistance(str, Enum):
+    _20cmx20cm = "20cmx20cm"
+    _25cmx25cm = "25cmx25cm"
+    _30cmx30cm = "30cmx30cm"
+
+class PredictCropYieldRequest(BaseModel):
+    land_area: int = Field(examples=[1000])
+    rainfall: RainfallStatus = Field(examples=[RainfallStatus.normal])
+    disease_level: DiseaseLevel = Field(examples=[DiseaseLevel.normal])
+    temperature: float = Field(examples=[21.8])
+    planting_distance: PlantingDistance = Field(examples=[PlantingDistance._20cmx20cm])
+
+@app.post('/predict-crop-yield')
+async def predict_crop_yield(req: PredictCropYieldRequest):
+    seed_weight = crop.seed_amount(req.land_area, req.planting_distance)  # Jumlah bibit padi (kg)
+
+    gkp = crop.fuzzy_yield_prediction(
+        req.land_area,
+        req.rainfall,
+        req.disease_level,
+        req.temperature,
+        req.planting_distance,
+    )
+    gkg = crop.gkg_from_gkp(gkp)
+    rice = crop.rice_from_gkg(gkg)
+
+    return {
+        'land_area': req.land_area, # m2
+        'rainfall': req.rainfall,
+        'disease_level': req.disease_level, 
+        'temperature': req.temperature, #C
+        'planting_distance': req.planting_distance, 
+        'seed_weight': seed_weight, 
+        'gkp': gkp, 
+        'gkg': gkg, 
+        'rice': rice,
     }
