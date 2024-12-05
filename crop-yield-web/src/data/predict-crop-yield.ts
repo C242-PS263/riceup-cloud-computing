@@ -17,3 +17,19 @@ export interface PredictCropYieldResponse {
     gkg: number;
     rice: number;
 }
+
+export interface PredictCropYieldAdviceRequest {
+    land_area: number;
+    rainfall: string;
+    disease_level: string;
+    temperature: number;
+    planting_distance: string;
+    seed_weight: number;
+    gkp: number;
+    gkg: number;
+    rice: number;
+}
+
+export interface PredictCropYieldAdviceResponse {
+    advice: string;
+}

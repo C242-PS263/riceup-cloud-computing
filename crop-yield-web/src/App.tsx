@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { predictCropYield } from './data-access/predict-crop-yield'
-import { PredictCropYieldRequest, PredictCropYieldResponse } from './data/predict-crop-yield'
+import { predictCropYield, predictCropYieldAdvice } from './data-access/predict-crop-yield'
+import { PredictCropYieldRequest, PredictCropYieldResponse, PredictCropYieldAdviceResponse } from './data/predict-crop-yield'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export default function CropYieldPrediction() {
   const [formData, setFormData] = useState<PredictCropYieldRequest>({
@@ -20,6 +23,8 @@ export default function CropYieldPrediction() {
 
   const [prediction, setPrediction] = useState<PredictCropYieldResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [advice, setAdvice] = useState<PredictCropYieldAdviceResponse | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   const handleChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -36,6 +41,18 @@ export default function CropYieldPrediction() {
       console.error('Error predicting crop yield:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGetAdvice = async () => {
+    if (prediction) {
+      try {
+        const adviceResponse = await predictCropYieldAdvice(prediction)
+        setAdvice(adviceResponse)
+        setShowModal(true)
+      } catch (error) {
+        console.error('Error getting crop yield advice:', error)
+      }
     }
   }
 
@@ -124,51 +141,72 @@ export default function CropYieldPrediction() {
         </form>
 
         {prediction && (
-          <Card className="mt-8 lg:mt-0 max-w-2xl mx-auto lg:mx-0">
-            <CardHeader>
-              <CardTitle className="text-primary">Hasil Prediksi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Land Area</dt>
-                  <dd><Badge>{prediction.land_area}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Rainfall</dt>
-                  <dd><Badge>{prediction.rainfall}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Disease Level</dt>
-                  <dd><Badge>{prediction.disease_level}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Temperature</dt>
-                  <dd><Badge>{prediction.temperature}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Planting Distance</dt>
-                  <dd><Badge>{prediction.planting_distance}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Seed Weight</dt>
-                  <dd><Badge>{prediction.seed_weight}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">GKP</dt>
-                  <dd><Badge>{prediction.gkp}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">GKG</dt>
-                  <dd><Badge>{prediction.gkg}</Badge></dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-secondary-foreground">Rice</dt>
-                  <dd><Badge>{prediction.rice}</Badge></dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
+          <>
+            <Card className="mt-8 lg:mt-0 max-w-2xl mx-auto lg:mx-0">
+              <CardHeader>
+                <CardTitle className="text-primary">Hasil Prediksi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Land Area</dt>
+                    <dd><Badge>{prediction.land_area}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Rainfall</dt>
+                    <dd><Badge>{prediction.rainfall}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Disease Level</dt>
+                    <dd><Badge>{prediction.disease_level}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Temperature</dt>
+                    <dd><Badge>{prediction.temperature}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Planting Distance</dt>
+                    <dd><Badge>{prediction.planting_distance}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Seed Weight</dt>
+                    <dd><Badge>{prediction.seed_weight}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">GKP</dt>
+                    <dd><Badge>{prediction.gkp}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">GKG</dt>
+                    <dd><Badge>{prediction.gkg}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-secondary-foreground">Rice</dt>
+                    <dd><Badge>{prediction.rice}</Badge></dd>
+                  </div>
+                </dl>
+                <Button className="mt-4 w-full bg-secondary text-secondary-foreground" onClick={handleGetAdvice}>
+                  Get Advice
+                </Button>
+              </CardContent>
+            </Card>
+
+            {advice && (
+              <Dialog open={showModal} onOpenChange={setShowModal}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Advice</DialogTitle>
+                  </DialogHeader>
+                  <DialogContent>
+                    <Markdown remarkPlugins={[remarkGfm]}>{advice.advice}</Markdown>
+                  </DialogContent>
+                  <DialogFooter>
+                    <Button onClick={() => setShowModal(false)}>Close</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </>
         )}
       </div>
     </div>
