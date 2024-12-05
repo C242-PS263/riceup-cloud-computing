@@ -6,6 +6,8 @@ import numpy as np
 from pydantic import BaseModel, Field
 from enum import Enum
 from formula import crop
+from ai import disease
+from fastapi.middleware.cors import CORSMiddleware
 
 PROJECT_ROOT: str = os.path.dirname(os.path.abspath(__file__))
 DISEASE_MODEL_PATH = os.path.abspath(PROJECT_ROOT + '/storage/models/rice_disease_detector_model.json')
@@ -32,6 +34,16 @@ with open(DISEASE_MODEL_PATH, 'r') as f:
 disease_model.load_weights(DISEASE_WEIGHTS_PATH)
 
 app = FastAPI()
+origins = [
+    "*"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -45,10 +57,13 @@ async def predict(file: UploadFile):
     prediction = disease_model.predict(img)
     predicted_class = MODEL_DISEASE_CLASS[np.argmax(prediction) - 1]
     information = diseases_ref.document(predicted_class).get().to_dict()
+    advice = disease.advice_generate(predicted_class)
+
     return {
         "prediction": predicted_class,
         "raw_prediction": str(prediction),
         "information": information,
+        "advice": advice,
     }
 
 class RainfallStatus(str, Enum):
