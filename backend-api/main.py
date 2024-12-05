@@ -3,11 +3,10 @@ from google.cloud import firestore
 import tensorflow as tf
 from fastapi import FastAPI, UploadFile
 import numpy as np
-from pydantic import BaseModel, Field
-from enum import Enum
 from formula import crop
-from ai import disease
+from ai import disease, predict as predict_field
 from fastapi.middleware.cors import CORSMiddleware
+from model.predict import *
 
 PROJECT_ROOT: str = os.path.dirname(os.path.abspath(__file__))
 DISEASE_MODEL_PATH = os.path.abspath(PROJECT_ROOT + '/storage/models/rice_disease_detector_model.json')
@@ -57,7 +56,7 @@ async def predict(file: UploadFile):
     prediction = disease_model.predict(img)
     predicted_class = MODEL_DISEASE_CLASS[np.argmax(prediction) - 1]
     information = diseases_ref.document(predicted_class).get().to_dict()
-    advice = disease.advice_generate(predicted_class)
+    advice = disease.advice_disease_generate(predicted_class)
 
     return {
         "prediction": predicted_class,
@@ -65,32 +64,6 @@ async def predict(file: UploadFile):
         "information": information,
         "advice": advice,
     }
-
-class RainfallStatus(str, Enum):
-    sangat_rendah = "sangat rendah"
-    rendah = "rendah"
-    normal = "normal"
-    tinggi = "tinggi"
-    sangat_tinggi = "sangat tinggi"
-
-class DiseaseLevel(str, Enum):
-    sangat_rendah = "sangat rendah"
-    rendah = "rendah"
-    normal = "normal"
-    tinggi = "tinggi"
-    sangat_tinggi = "sangat tinggi"
-
-class PlantingDistance(str, Enum):
-    _20cmx20cm = "20cmx20cm"
-    _25cmx25cm = "25cmx25cm"
-    _30cmx30cm = "30cmx30cm"
-
-class PredictCropYieldRequest(BaseModel):
-    land_area: int = Field(examples=[1000])
-    rainfall: RainfallStatus = Field(examples=[RainfallStatus.normal])
-    disease_level: DiseaseLevel = Field(examples=[DiseaseLevel.normal])
-    temperature: float = Field(examples=[21.8])
-    planting_distance: PlantingDistance = Field(examples=[PlantingDistance._20cmx20cm])
 
 @app.post('/predict-crop-yield')
 async def predict_crop_yield(req: PredictCropYieldRequest):
@@ -116,4 +89,12 @@ async def predict_crop_yield(req: PredictCropYieldRequest):
         'gkp': gkp, 
         'gkg': gkg, 
         'rice': rice,
+    }
+
+@app.post('/predict-crop-yield-advice')
+async def predict_crop_yield_advice(req: PredictCropYieldAdviceRequest):
+    advice = predict_field.advice_predict_generate(req)
+
+    return {
+        "advice": advice,
     }
