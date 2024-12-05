@@ -1,5 +1,4 @@
 import os
-from google.cloud import firestore
 import tensorflow as tf
 from fastapi import FastAPI, UploadFile
 import numpy as np
@@ -7,6 +6,10 @@ from formula import crop
 from ai import disease, predict as predict_field
 from fastapi.middleware.cors import CORSMiddleware
 from model.predict import *
+from database.firestore import diseases_ref
+from database.memorystore import redis_client
+from database.pubsub import publisher, topic_set_predict_crop_yield_advice
+import json
 
 PROJECT_ROOT: str = os.path.dirname(os.path.abspath(__file__))
 DISEASE_MODEL_PATH = os.path.abspath(PROJECT_ROOT + '/storage/models/rice_disease_detector_model.json')
@@ -24,9 +27,6 @@ MODEL_DISEASE_CLASS = (
     "narrow brown spot",
     "healthy",
 )
-
-firestore_db = firestore.Client()
-diseases_ref = firestore_db.collection(u'diseases')
 
 with open(DISEASE_MODEL_PATH, 'r') as f:
     disease_model = tf.keras.models.model_from_json(f.read())
@@ -79,7 +79,7 @@ async def predict_crop_yield(req: PredictCropYieldRequest):
     gkg = crop.gkg_from_gkp(gkp)
     rice = crop.rice_from_gkg(gkg)
 
-    return {
+    result = {
         'land_area': req.land_area, # m2
         'rainfall': req.rainfall,
         'disease_level': req.disease_level, 
@@ -91,9 +91,28 @@ async def predict_crop_yield(req: PredictCropYieldRequest):
         'rice': rice,
     }
 
+    advice_req = PredictCropYieldAdviceRequest(**result)
+    cache_key = advice_req.as_redis_key()
+    cached_data = redis_client.get(cache_key)
+
+    if cached_data is None:
+        publisher.publish(topic_set_predict_crop_yield_advice, json.dumps(result).encode('utf-8'))
+
+    return result
+
 @app.post('/predict-crop-yield-advice')
 async def predict_crop_yield_advice(req: PredictCropYieldAdviceRequest):
+    cache_key = req.as_redis_key()
+    cached_data = redis_client.get(cache_key)
+
+    if cached_data:
+        return {
+            "advice": cached_data,
+        }
+    
     advice = predict_field.advice_predict_generate(req)
+
+    redis_client.set(cache_key, advice, ex=3600)
 
     return {
         "advice": advice,

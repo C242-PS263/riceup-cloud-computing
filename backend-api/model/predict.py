@@ -37,3 +37,16 @@ class PredictCropYieldAdviceRequest(BaseModel):
     gkp: float = Field(examples=[514.56])
     gkg: float = Field(examples=[360.19])
     rice: float = Field(examples=[234.12])
+
+    def as_redis_key(self):
+        return "_".join(map(str, [
+            self.land_area,
+            self.rainfall,
+            self.disease_level,
+            self.temperature,
+            self.planting_distance,
+            self.seed_weight,
+            self.gkp,
+            self.gkg,
+            self.rice
+        ]))
