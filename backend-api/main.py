@@ -56,7 +56,16 @@ async def predict(file: UploadFile):
     prediction = disease_model.predict(img)
     predicted_class = MODEL_DISEASE_CLASS[np.argmax(prediction) - 1]
     information = diseases_ref.document(predicted_class).get().to_dict()
-    advice = disease.advice_disease_generate(predicted_class)
+
+    cache_key = "disease:" + predicted_class
+    cached_data = redis_client.get(cache_key)
+
+    if cached_data:
+        advice = cached_data
+    else:
+        advice =  disease.advice_disease_generate(predicted_class)
+        
+        redis_client.set(cache_key, advice, ex=3600)
 
     return {
         "prediction": predicted_class,
@@ -95,7 +104,7 @@ async def predict_crop_yield(req: PredictCropYieldRequest):
     cache_key = advice_req.as_redis_key()
     cached_data = redis_client.get(cache_key)
 
-    if cached_data is None:
+    if not cached_data:
         publisher.publish(topic_set_predict_crop_yield_advice, json.dumps(result).encode('utf-8'))
 
     return result

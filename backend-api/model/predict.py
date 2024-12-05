@@ -39,7 +39,7 @@ class PredictCropYieldAdviceRequest(BaseModel):
     rice: float = Field(examples=[234.12])
 
     def as_redis_key(self):
-        return "_".join(map(str, [
+        return "predict_crop_yield_advice:" + "_".join(map(str, [
             self.land_area,
             self.rainfall,
             self.disease_level,
