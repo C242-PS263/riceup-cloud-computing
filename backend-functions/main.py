@@ -4,22 +4,20 @@ import json
 
 from cloudevents.http import CloudEvent
 import functions_framework
-from ai import predict
-from model.predict import *
-from database.memorystore import redis_client
+import requests
+import os
 
 # Triggered from a message on a Cloud Pub/Sub topic.
 @functions_framework.cloud_event
 def subscribe(cloud_event: CloudEvent) -> None:
     body = json.loads(base64.b64decode(cloud_event.data["message"]["data"]).decode())
 
-    req = PredictCropYieldAdviceRequest(**body)
+    requests.post(
+        os.environ.get('API_URL') + '/predict-crop-yield-advice',
+        json=body,
+    )
 
-    advice = predict.advice_predict_generate(req)
-
-    redis_client.set(req.as_redis_key(), advice)
-
-    print('Saved advice to Redis: {}'.format(req.as_redis_key()))
+    print('Call api for generate advice success')
 
 
 # [END functions_cloudevent_pubsub]
