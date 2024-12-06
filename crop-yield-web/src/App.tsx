@@ -63,7 +63,7 @@ export default function CropYieldPrediction() {
   return (
     <>
       <div className="h-screen flex items-center justify-center">
-        <div className="container mx-10 py-10 bg-background text-foreground flex lg:flex-row flex-col lg:gap-10 lg:justify-center">
+        <div className="container mx-2 lg:mx-10 py-10 bg-background text-foreground flex lg:flex-row flex-col lg:gap-10 lg:justify-center">
           <form onSubmit={handleSubmit}>
             <Card className="max-w-2xl mx-auto lg:mx-0">
               <CardHeader>
@@ -200,10 +200,11 @@ export default function CropYieldPrediction() {
           )}
 
           <Dialog open={showModal && advice !== null} onOpenChange={setShowModal}>
-            <DialogContent>
+            <DialogContent className="lg:max-w-screen-lg overflow-y-scroll max-h-screen">
               <DialogHeader>
                 <DialogTitle>Saran dari kami</DialogTitle>
               </DialogHeader>
+              <div></div>
               <Markdown remarkPlugins={[remarkGfm]}>{advice?.advice || ''}</Markdown>
               <DialogFooter>
                 <Button onClick={() => setShowModal(false)}>Close</Button>
